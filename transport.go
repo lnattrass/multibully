@@ -2,8 +2,10 @@ package multibully
 
 import (
 	"errors"
-	"log"
+	"fmt"
 	"net"
+
+	"go.uber.org/zap"
 )
 
 type Transport interface {
@@ -25,20 +27,23 @@ func NewMulticastTransport(mcastIP *net.IP, mcastInterface *net.Interface, port 
 
 	listenIP := *mcastIP
 	listenAddr := &net.UDPAddr{IP: listenIP, Port: port}
-	log.Printf("* Listening on: %+v", listenAddr)
 
 	readConn, err := net.ListenMulticastUDP("udp", mcastInterface, listenAddr)
 	if err != nil {
-		log.Fatal(err)
+		log.Error(fmt.Sprintf("Failed to listen to %s on interface %s", listenAddr.String(), mcastInterface.Name), zap.Error(err))
+		return nil, err
 	}
+
+	log.Info(fmt.Sprintf("Listening on Multicast UDP address %s", listenAddr.String()))
 
 	broadcastAddr := &net.UDPAddr{IP: *mcastIP, Port: port}
-	log.Printf("* Broadcasting on: %+v", broadcastAddr)
 	writeConn, err := net.DialUDP("udp", nil, broadcastAddr)
 	if err != nil {
-		log.Fatal(err)
+		log.Error(fmt.Sprintf("Failed to DialUDP for %s", broadcastAddr.String()), zap.Error(err))
+		return nil, err
 	}
 
+	log.Info(fmt.Sprintf("Broadcasting on UDP address %s", listenAddr.String()))
 	return &MulticastTransport{readConn: readConn, writeConn: writeConn, buffer: []byte{}}, nil
 }
 
@@ -50,7 +55,7 @@ Loop:
 	for {
 		num, _, e := t.readConn.ReadFrom(readBuffer)
 		if err != nil {
-			log.Println(err)
+			log.Error("Error returned on Read", zap.Error(err))
 			err = e
 		}
 

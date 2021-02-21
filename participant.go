@@ -2,10 +2,12 @@ package multibully
 
 import (
 	"bytes"
-	"log"
+	"fmt"
 	"net"
 	"sync"
 	"time"
+
+	"go.uber.org/zap"
 )
 
 const listenTimeout = 500
@@ -100,17 +102,20 @@ func (p *Participant) RunLoop(done chan struct{}) {
 		for {
 			msg, err := p.transport.Read()
 			if err != nil {
-				log.Printf("< %s", err)
+				log.Error("Failed to read from transport", zap.Error(err))
 				break
 			}
 
 			if msg != nil {
 				// Skip our own Messages, which we receive on the loopback interface
 				if msg.PID == p.pid {
+					if !msg.IP.Equal(*p.IP) {
+						log.Warn(fmt.Sprintf("Detected possible PID collision PID %d==%d with IPs %s %s", msg.PID, p.pid, msg.IP.String(), p.IP.String()))
+					}
 					continue
 				}
 
-				log.Printf("< %+v", msg)
+				log.Debug("Message Received", zap.String("from", msg.IP.String()))
 				p.handleMessage(msg)
 			}
 		}
@@ -124,10 +129,10 @@ func (p *Participant) RunLoop(done chan struct{}) {
 		for {
 			select {
 			case msg := <-p.txChan:
-				log.Printf("> %+v", msg)
+				log.Debug("Sending Message", zap.Uint8("kind", msg.Kind), zap.Uint64("pid", msg.PID))
 				err := p.transport.Write(msg)
 				if err != nil {
-					log.Printf("> %s", err)
+					log.Error("Failed to write to transport", zap.Error(err))
 				}
 			case <-done:
 				break Loop
@@ -171,7 +176,7 @@ func (p *Participant) handleCoordinatorMessage(m *Message) {
 		p.becomeFollower(m.PID, m.IP)
 		p.stopElection()
 	} else {
-		log.Print("* Received CoordinatorMessage from smaller PID, starting election")
+		log.Info("Received CoordinatorMessage from smaller PID, starting election")
 		p.StartElection()
 	}
 }
@@ -194,7 +199,7 @@ func (p *Participant) StartElection() {
 	p.sendMessage(ElectionMessage)
 
 	p.electionTimer = time.AfterFunc(electionTimeout*time.Millisecond, func() {
-		log.Println("* Nothing replied to election broadcast, become leader")
+		log.Info("Nothing replied to election broadcast, become leader")
 		p.becomeLeader()
 	})
 }
@@ -216,7 +221,7 @@ func (p *Participant) becomeLeader() {
 func (p *Participant) startListeningForLeader() {
 	p.stopListeningForLeader()
 	p.listenTimer = time.AfterFunc(listenTimeout*time.Millisecond, func() {
-		log.Println("* Leader did not broadcast within timeout, starting election")
+		log.Info("Leader did not broadcast within timeout, starting election")
 		p.StartElection()
 	})
 }

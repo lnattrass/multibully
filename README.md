@@ -4,6 +4,11 @@ MultiBully is a Go library for distributed leadership election on a UDP multicas
 
 I think there are some bugs and inefficiencies in my implementation of it. It always manages to converge on the correct leader, but it sometimes takes a few goes round. Please feel free to help!
 
+## Fork Changes
+@lnattrass:
+I've swapped the fatal calls with errors, and swapped in the zap logging framework for structured logs
+I may replace the UDP transport with an authenticated transport at some stage - this maybe: [xtaci/kcp-go](https://github.com/xtaci/kcp-go)
+
 ## Usage
 
 The Bully algorithm elects the node with the largest `pid` to be leader. The `pid` doesn't necessarily need to be the process ID in the operating system – you could choose for this to be a timestamp or a fixed integer for each node. In this implementation, the combination of `pid` and IP address must be unique, so you can run multiple instances on a single host.
@@ -47,5 +52,7 @@ func main() {
 ```
 
 ## Thanks
+
+Thanks to [`tomtaylor`](https://github.com/tomtaylor/multibully) for the upstream work on this.
 
 Thanks to [`oaStuff`](https://github.com/oaStuff/leaderElection) for their sample code which helped me understand how to implement the Bully algorithm.

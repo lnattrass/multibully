@@ -1,13 +1,13 @@
 package main
 
 import (
-	"github.com/tomtaylor/multibully"
-	"log"
-	"os"
-	"net"
 	"flag"
-)
+	"log"
+	"net"
+	"os"
 
+	"github.com/lnattrass/multibully"
+)
 
 func main() {
 	var iface *string
